@@ -1,67 +1,40 @@
-import axios, { AxiosResponse } from 'axios';
-// interface
-interface UserProps {
+import { Model } from './Model';
+import { Attributes } from './Attributes';
+import { ApiSync } from './ApiSync';
+import { Eventing } from './Eventing';
+import { Collection } from './Collection';
+
+export interface UserProps {
   id?: number;
-  name?: string;// ? is an optional
+  name?: string;
   age?: number;
 }
 
-// type alias
-type Callback = () => void;
+const rootUrl = 'http://localhost:3000/users';
 
-export class User {
-  events: { [key: string]: Callback[] } = {};
-
-  constructor(private data: UserProps) {}
-
-  get(propName: string): number | string {
-    return this.data[propName];
+export class User extends Model<UserProps> {
+  // Composition using static methods
+  static buildUser(attrs: UserProps): User {
+    return new User(
+      new Attributes<UserProps>(attrs),
+      new Eventing(),
+      new ApiSync<UserProps>(rootUrl)
+    );
   }
 
-  set(update: UserProps): void {
-    Object.assign(this.data, update);
+  static buildUserCollection(): Collection<User, UserProps> {
+    return new Collection<User, UserProps>(
+      rootUrl,
+      (json: UserProps) => User.buildUser(json)
+    );
   }
 
-  on(eventName: string, callback: Callback) {
-    const handlers = this.events[eventName] || [];
-    handlers.push(callback);
-    this.events[eventName] = handlers;
+  isAdminUser(): boolean {
+    return this.get('id') === 1;
   }
 
-  trigger(eventName: string): void {
-    const handlers = this.events[eventName];
-
-    if (!handlers || handlers.length === 0) {
-      return;
-    }
-
-    handlers.forEach(callback => {
-      callback();
-    })
-  }
-
-  fetch(): void {
-    axios.get(`http://localhost:3000/users/${this.get('id')}`)
-      .then((response: AxiosResponse): void => {
-        this.set(response.data);
-      })
-  }
-
-  save(): void {
-    const BASE_URL = 'http://localhost:3000/users';
-    const id = this.get('id')
-    if (this.get('id')) {
-      // put
-      axios.put(`${BASE_URL}/${id}`, this.data)
-      .then((response: AxiosResponse): void => {
-        console.log(response.data)
-      })
-    } else {
-      // post
-      axios.post(`${BASE_URL}`, this.data)
-      .then((response: AxiosResponse): void => {
-        console.log(response.data)
-      })
-    }
+  setRandomAge(): void {
+    const age = Math.round(Math.random() * 100);
+    this.set({ age });
   }
 }
